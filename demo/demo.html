@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>JSDecoder Demo</title>
+    <style>
+        * {
+            padding: 0;
+            margin: 0;
+            font-size: 12px;
+        }
+
+        #playWind {
+            float: left;
+            display: inline-block;
+        }
+        body {
+            margin: 10px;
+        }
+        button {
+            margin: 10px 10px;
+            padding:2px 5px;
+        }
+        .button_box {
+           float: left;
+        }
+        .button_box div {
+            margin: 10px 10px;
+        }
+        #volume {
+            position: relative;
+            top: 5px;
+        }
+        .items {
+            border: 1px solid #444444;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="playWind" style="width: 600px; height: 400px;"></div>
+    <div class="button_box">
+        <div class="items">
+			<div>Gateway</div>
+				&nbsp;&nbsp;Access URL: <input type="text" id="accessUrl" value="wss://172.7.203.17:443" />
+				&nbsp;&nbsp;User Name: <input type="text" id="username" value="admin" />
+				&nbsp;&nbsp;Password: <input type="text" id="password" value="hik12345" />
+            <div class="items">			
+				<div>Live View</div>
+				&nbsp;&nbsp;Live View URL: <input style="width:600px; height=20px;" type="text" id="previewUrl" value="rtsp://172.7.203.17:554/dac/realplay/1F16052F-FD9D-4E63-9164-104D4D6109B01/MAIN/TCP?streamform=rtp" />
+				<br />
+				<button type="button" onClick="realplay()">Start Live View</button>
+				<button type="button" onClick="stop()">Stop Live View</button>
+				<button type="button" onClick="StopRealPlayAll()">Stop All</button>
+				<button type="button" onclick="record()">Start Recording</button>
+				<button type="button" onclick="stopRecord()">Stop Recording</button>
+				<button type="button" onClick="CapturePicture('BMP')">Capture (BMP)</button>
+				<button type="button" onClick="CapturePicture('JPEG')">Capture (JPEG)</button>
+				</div>
+
+			<div class="items">
+				<div>Playback</div>
+				&nbsp;&nbsp;Playback URL: <input style="width:800px; height=20px;" type="text" id="playbackUrl" value="rtsp://172.7.203.17:554/dac/playback/camera/1F16052F-FD9D-4E63-9164-104D4D6109B01/SUB/TCP?starttime=20210413T191007Z&endtime=20210414T121007Z&streamform=rtp" />
+				<br />
+				<button type="button" onClick="playback()">Start Playback</button>
+				<button type="button" onClick="stop()">Stop Playback</button>
+				<button type="button" onClick="Fast()">Fast Forward</button>
+				<button type="button" onClick="Slow()">Slow Forward</button>
+				<button type="button" onclick="record()">Start Recording</button>
+				<button type="button" onclick="stopRecord()">Stop Recording</button><br />
+			</div>
+			
+			<div class="items">
+				<div>Voicetalk</div>
+				&nbsp;&nbsp;Voicetalk URL: <input style="width:800px; height=20px;" type="text" id="voicetalkUrl" value="rtsp://172.7.203.17:554/dac/talk/1F16052F-FD9D-4E63-9164-104D4D6109B01/TCP" />
+				<br />
+				<button type="button" onClick="voicetalk()">Start Voicetalk</button>
+				<button type="button" onClick="stopvoicetalk()">Stop Voicetalk</button>
+				<br />
+			</div>
+
+			<div class="items">
+			    <div>Audio</div>
+				<button type="button" onClick="OpenSound()">Turn on Audio</button>
+				<button type="button" onClick="CloseSound()">Turn off Audio</button>
+			</div>
+
+			<div class="items">
+				<div>Plugin</div>
+				<button type="button" onClick="arrangeWindow(1)">1x1</button>
+				<button type="button" onClick="arrangeWindow(2)">2x2</button>
+				<button type="button" onClick="fullScreenSingle()">Full Screen (A Window)</button>
+				<button type="button" onClick="fullSreen()">Full Screen (All Windows)</button>
+				<button type="button" onClick="getVersion()">Get Version</button>
+				<button type="button" onClick="Destroy()">Destroy Worker(Plugin)</button>
+				<button type="button" onClick="maxScreenSingle()">Max Screen</button>
+				<button type="button" onClick="minScreenSingle()">Min Screen</button>
+			</div>
+
+			<div class="items">
+				<div>Error Prompt</div>
+				<div id="error" style="color:red"></div>
+			</div>
+		</div>
+    <script src="dist/polyfill2.js"></script>
+    <script src="dist/jsPlugin-1.2.0.min.js"></script>
+    <script>
+
+    var iWind = 0;
+    var jsDecoder = new JSPlugin({
+        szId: "playWind",
+        iWidth: 600,
+        iHeight: 400,
+        iMaxSplit: 4,
+        iCurrentSplit: 1,
+        szBasePath: "./dist",
+        oStyle: {
+            border: "#343434",
+            borderSelect: "red",
+            background: "#4C4B4B"
+        },
+		bOnlySupportJSDecoder: true
+    });
+	
+	function initPlugin() {
+        jsDecoder.JS_SetWindowControlCallback({
+            windowEventSelect: function (iWndIndex) { 
+                iWind = iWndIndex;
+                console.log(iWndIndex);
+            },
+            pluginErrorHandler: function (iWndIndex, iErrorCode, oError) {  
+                console.log(iWndIndex, iErrorCode, oError);
+            },
+            performanceLack: function () { 
+                console.log("lack of performance ");
+            }
+        });
+    }
+    initPlugin();
+	
+    function realplay () {
+		var accessUrl = document.getElementById("accessUrl").value;//access URL
+		var previewUrl = document.getElementById("previewUrl").value;//preview URL
+		var username = document.getElementById("username").value;//user name
+		var password = document.getElementById("password").value;//password
+		
+        jsDecoder.JS_Play(accessUrl, {
+			playURL: previewUrl,//play URL,
+            auth: username + ':' + password  //username:password
+        }, iWind).then(function() {
+            console.log("realplay success");
+        },function () {
+			var html = "realplay failed";
+			document.getElementById("error").innerHTML = "<div>" + html + "</div>";
+        });
+    }
+
+    function playback () {	
+		var accessUrl = document.getElementById("accessUrl").value;//access URL
+		var playbackUrl = document.getElementById("playbackUrl").value;//playback URL
+		var username = document.getElementById("username").value;//user name
+		var password = document.getElementById("password").value;//password
+		
+        jsDecoder.JS_Play(accessUrl, {
+			playURL: playbackUrl,
+            auth: username + ':' + password  //username:password
+		}, iWind, ' ', ' ').then(function() {
+			console.log("playback success");
+		},function () {
+			var html = "playback failed";
+			document.getElementById("error").innerHTML = "<div>" + html + "</div>";
+		});
+    }
+	
+	function voicetalk () {	
+		var accessUrl = document.getElementById("accessUrl").value;//access URL
+		var voicetalkUrl = document.getElementById("voicetalkUrl").value;//preview URL
+		var username = document.getElementById("username").value;//user name
+		var password = document.getElementById("password").value;//password
+		
+        jsDecoder.JS_StartTalk(accessUrl, {
+			playURL: voicetalkUrl,
+            auth: username + ':' + password,  //username:password
+			mode: "media"
+		}).then(function() {
+			var html = "voicetalk success";
+			document.getElementById("error").innerHTML = "<div>" + html + "</div>";
+        },function () {
+			var html = "voicetalk failed";
+			document.getElementById("error").innerHTML = "<div>" + html + "</div>";
+        });
+    }
+	
+    function stopvoicetalk () {
+        jsDecoder.JS_StopTalk().then(function () {
+			var html = "stop voicetalk success";
+			document.getElementById("error").innerHTML = "<div>" + html + "</div>";
+        }, function () {
+			var html = "stop voicetalk failed";
+			document.getElementById("error").innerHTML = "<div>" + html + "</div>";
+            console.log("stop voicetalk failed");
+        });
+    }
+	
+    function stop () {
+        jsDecoder.JS_Stop(iWind).then(function () {
+            console.log("stop success");
+        }, function () {
+			var html = "stop failed";
+			document.getElementById("error").innerHTML = "<div>" + html + "</div>";
+            console.log("stop failed");
+        });
+    }
+
+    function arrangeWindow (i) {
+        jsDecoder.JS_ArrangeWindow(i);
+    }
+
+    function Stop () {
+        jsDecoder.JS_Stop(iWind);
+    }
+
+    function Slow (i) {
+        jsDecoder.JS_Slow(iWind).then(function () {
+            console.log("Slow success");
+        }, function () {
+			var html = "Slow failed";
+			document.getElementById("error").innerHTML = "<div>" + html + "</div>";
+            console.log("Slow failed");
+        });
+    }
+
+    function Fast (i) {
+        jsDecoder.JS_Fast(iWind,i).then(function () {
+            console.log("Fast success");
+        }, function () {
+			var html = "Fast failed";
+			document.getElementById("error").innerHTML = "<div>" + html + "</div>";
+            console.log("Fast failed:" + iWind + ";" + i);
+        });
+    }
+
+    function OpenSound () {
+        jsDecoder.JS_OpenSound (iWind);
+    }
+    
+	function CloseSound () {
+        jsDecoder.JS_CloseSound ()
+    }
+
+    function CapturePicture(szType) {
+        jsDecoder.JS_CapturePicture (iWind, "img", szType).then(function () {
+            console.log("CapturePicture success");
+        }, function () {
+			var html = "CapturePicture failed";
+			document.getElementById("error").innerHTML = "<div>" + html + "</div>";
+            console.log("CapturePicture failed");
+        });
+    }
+    
+	function StopRealPlayAll () {
+        jsDecoder.JS_StopRealPlayAll ()
+    }
+    
+	function dateFormat(oDate, fmt) {
+        var o = {
+            "M+": oDate.getMonth() + 1, 
+            "d+": oDate.getDate(), 
+            "h+": oDate.getHours(), 
+            "m+": oDate.getMinutes(), 
+            "s+": oDate.getSeconds(), 
+            "q+": Math.floor((oDate.getMonth() + 3) / 3), 
+            "S": oDate.getMilliseconds()
+        };
+        if (/(y+)/.test(fmt)) {
+            fmt = fmt.replace(RegExp.$1, (oDate.getFullYear() + "").substr(4 - RegExp.$1.length));
+        }
+        for (var k in o) {
+            if (new RegExp("(" + k + ")").test(fmt)) {
+                fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+            }
+        }
+        return fmt;
+    }
+    
+	function record() {
+        var szTime = dateFormat(new Date(), "yyyyMMddhhmmssS");
+        jsDecoder.JS_StartSave(iWind,"10.17.137.229_01_" + szTime + ".mp4").then(function () {
+            console.log("record success");
+        }, function () {
+			var html = "Record failed";
+			document.getElementById("error").innerHTML = "<div>" + html + "</div>";
+            console.log("record failed");
+        });;
+    }
+
+    function stopRecord() {
+        jsDecoder.JS_StopSave(iWind).then(function () {
+            console.log("stopRecord success");
+        }, function () {
+			var html = "Stop Record failed";
+			document.getElementById("error").innerHTML = "<div>" + html + "</div>";
+            console.log("stopRecord failed");
+        });;
+    }
+    
+	function fullSreen() {
+        jsDecoder.JS_FullScreenDisplay(true);
+    }
+    
+	function fullScreenSingle () {
+        jsDecoder.JS_FullScreenSingle(iWind);
+    }
+	
+	function maxScreenSingle () {
+	jsDecoder.JS_MaxScreenSingle(iWind).then(function () {
+		console.log("JS_MaxScreenSingle success");
+	}, function () {
+		console.log("JS_MaxScreenSingle failed");
+	});
+    }
+	
+    function minScreenSingle () {
+        jsDecoder.JS_MinScreenSingle(iWind).then(function () {
+            console.log("JS_MinScreenSingle success");
+        }, function () {
+            console.log("JS_MinScreenSingle failed");
+        });
+    }
+	
+	function getVersion () {
+        jsDecoder.JS_GetPluginVersion().then(function (szVersion) {
+            console.log(szVersion);
+        });
+    }
+	
+	function Destroy() {
+        jsDecoder.JS_DestroyWorker().then(function () {
+            console.log("destroyWorker success");
+        });
+    }
+
+    window.onresize = function () {
+        jsDecoder.JS_Resize(600, 400);
+    }
+    </script>
+</body>
+</html>

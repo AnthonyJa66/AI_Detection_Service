@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>报警记录查询</title>
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+    <link
+        href="{{ url_for('static', filename='css/style.css') }}"
+        rel="stylesheet"
+    >
+</head>
+<body>
+    <div class="page-shell">
+        <div class="container py-4 py-lg-5">
+            <header class="page-header page-header-stack mb-4">
+                <div>
+                    <p class="eyebrow mb-2">报警记录查询</p>
+                    <h1 class="page-title mb-2">报警记录与基础统计</h1>
+                    <p class="page-subtitle mb-0">按摄像头、违规类型和时间范围筛选真实已保存的报警记录。</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-outline-secondary" href="{{ url_for('main.index') }}">返回首页</a>
+                    <a class="btn btn-outline-secondary" href="{{ url_for('camera.list_cameras') }}">摄像头管理</a>
+                </div>
+            </header>
+
+            <section class="stats-grid mb-4">
+                <article class="stats-card">
+                    <div class="stats-label">总报警数</div>
+                    <div class="stats-value">{{ statistics.total_events }}</div>
+                </article>
+                <article class="stats-card">
+                    <div class="stats-label">违规类型数</div>
+                    <div class="stats-value">{{ statistics.by_violation_type|length }}</div>
+                </article>
+                <article class="stats-card">
+                    <div class="stats-label">涉及摄像头数</div>
+                    <div class="stats-value">{{ statistics.by_camera|length }}</div>
+                </article>
+            </section>
+
+            <section class="filter-card mb-4">
+                <form class="row g-3" method="get" action="{{ url_for('main.alarms') }}">
+                    <div class="col-12 col-md-6 col-xl-2">
+                        <label class="form-label" for="camera_id">摄像头</label>
+                        <select class="form-select" id="camera_id" name="camera_id">
+                            <option value="">全部摄像头</option>
+                            {% for camera in camera_options %}
+                            <option value="{{ camera.id }}" {% if filters.camera_id == camera.id %}selected{% endif %}>
+                                {{ camera.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-6 col-xl-2">
+                        <label class="form-label" for="violation_type">违规类型</label>
+                        <select class="form-select" id="violation_type" name="violation_type">
+                            <option value="">全部类型</option>
+                            {% for item in violation_options %}
+                            <option value="{{ item }}" {% if filters.violation_type == item %}selected{% endif %}>
+                                {{ violation_type_text_map.get(item, item) }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-6 col-xl-2">
+                        <label class="form-label" for="start_time">开始时间</label>
+                        <input class="form-control" id="start_time" name="start_time" type="datetime-local" value="{{ filters.start_time }}">
+                    </div>
+                    <div class="col-12 col-md-6 col-xl-2">
+                        <label class="form-label" for="end_time">结束时间</label>
+                        <input class="form-control" id="end_time" name="end_time" type="datetime-local" value="{{ filters.end_time }}">
+                    </div>
+                    <div class="col-12 col-md-6 col-xl-2">
+                        <label class="form-label" for="page_size">每页数量</label>
+                        <select class="form-select" id="page_size" name="page_size">
+                            {% for size in [10, 20, 50, 100] %}
+                            <option value="{{ size }}" {% if filters.page_size == size %}selected{% endif %}>{{ size }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12 col-xl-2 d-flex align-items-end gap-2">
+                        <button class="btn btn-primary w-100" type="submit">查询</button>
+                        <a class="btn btn-outline-secondary" href="{{ url_for('main.alarms') }}">重置</a>
+                    </div>
+                </form>
+            </section>
+
+            <section class="row g-4 mb-4">
+                <div class="col-12 col-xl-6">
+                    <div class="summary-card h-100">
+                        <h2 class="summary-title">按违规类型统计</h2>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>违规类型</th>
+                                        <th class="text-end">数量</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in statistics.by_violation_type %}
+                                    <tr>
+                                        <td>{{ item.violation_type_text }}</td>
+                                        <td class="text-end">{{ item.count }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% if not statistics.by_violation_type %}
+                                    <tr>
+                                        <td colspan="2" class="text-center text-muted py-4">暂无统计数据</td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-xl-6">
+                    <div class="summary-card h-100">
+                        <h2 class="summary-title">按摄像头统计</h2>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>摄像头</th>
+                                        <th class="text-end">数量</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in statistics.by_camera %}
+                                    <tr>
+                                        <td>{{ item.camera_name }}</td>
+                                        <td class="text-end">{{ item.count }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% if not statistics.by_camera %}
+                                    <tr>
+                                        <td colspan="2" class="text-center text-muted py-4">暂无统计数据</td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="summary-card">
+                <div class="records-header">
+                    <div>
+                        <h2 class="summary-title mb-1">报警记录</h2>
+                        <p class="records-subtitle mb-0">
+                            当前显示 {{ events|length }} 条，共 {{ pagination.total_count }} 条
+                        </p>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>报警时间</th>
+                                <th>摄像头</th>
+                                <th>违规类型</th>
+                                <th>置信度</th>
+                                <th>快照</th>
+                                <th>事件 ID</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for event in events %}
+                            <tr>
+                                <td>{{ event.display_time }}</td>
+                                <td>{{ event.camera_name }}</td>
+                                <td><span class="record-badge">{{ event.violation_type_text }}</span></td>
+                                <td>{{ "%.2f"|format(event.confidence) }}</td>
+                                <td>
+                                    {% if event.snapshot_url %}
+                                    <a class="record-snapshot-link" href="{{ event.snapshot_url }}" target="_blank" rel="noopener noreferrer">
+                                        <img class="record-snapshot-thumb" src="{{ event.snapshot_url }}" alt="报警快照">
+                                        <span>查看图片</span>
+                                    </a>
+                                    {% else %}
+                                    暂无快照
+                                    {% endif %}
+                                </td>
+                                <td class="record-id">{{ event.event_id }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% if not events %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-5">当前筛选条件下暂无报警记录</td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination-bar">
+                    <div class="text-muted small">
+                        第 {{ pagination.page }} / {{ pagination.total_pages }} 页
+                    </div>
+                    <div class="d-flex gap-2">
+                        {% set prev_page = pagination.page - 1 %}
+                        {% set next_page = pagination.page + 1 %}
+                        <a
+                            class="btn btn-outline-secondary btn-sm {% if not pagination.has_prev %}disabled{% endif %}"
+                            href="{{ url_for('main.alarms', camera_id=filters.camera_id, violation_type=filters.violation_type, start_time=filters.start_time, end_time=filters.end_time, page_size=filters.page_size, page=prev_page) }}"
+                        >
+                            上一页
+                        </a>
+                        <a
+                            class="btn btn-outline-secondary btn-sm {% if not pagination.has_next %}disabled{% endif %}"
+                            href="{{ url_for('main.alarms', camera_id=filters.camera_id, violation_type=filters.violation_type, start_time=filters.start_time, end_time=filters.end_time, page_size=filters.page_size, page=next_page) }}"
+                        >
+                            下一页
+                        </a>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</body>
+</html>

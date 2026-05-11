@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海康监控播放测试</title>
+    <style>
+        :root {
+            color-scheme: dark;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+        }
+
+        .page {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .header {
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .header p {
+            margin: 0;
+            color: #94a3b8;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 320px;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .panel {
+            background: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 14px 40px rgba(0, 0, 0, 0.25);
+        }
+
+        .player-box {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            border-radius: 12px;
+            background: #020617;
+            border: 1px solid #334155;
+            overflow: hidden;
+        }
+
+        #hik-play-window {
+            width: 100%;
+            height: 100%;
+        }
+
+        .status-box {
+            min-height: 120px;
+            padding: 12px;
+            border-radius: 12px;
+            background: #0b1220;
+            border: 1px solid #233049;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .status-box.is-error {
+            border-color: #7f1d1d;
+            color: #fecaca;
+        }
+
+        .status-box.is-success {
+            border-color: #14532d;
+            color: #bbf7d0;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        button {
+            border: 0;
+            border-radius: 10px;
+            padding: 10px 18px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: #334155;
+            color: #fff;
+        }
+
+        .meta-list {
+            display: grid;
+            gap: 12px;
+            font-size: 14px;
+        }
+
+        .meta-item {
+            padding: 12px;
+            border-radius: 12px;
+            background: #0b1220;
+            border: 1px solid #233049;
+        }
+
+        .meta-item strong {
+            display: block;
+            margin-bottom: 6px;
+            color: #cbd5e1;
+        }
+
+        .hint {
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 12px;
+            background: rgba(245, 158, 11, 0.12);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            color: #fde68a;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 960px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header class="header">
+            <h1>海康监控播放测试</h1>
+            <p>本页面仅用于验证海康官方前端播放器方案在当前 Flask 项目中的接入情况，不影响现有 MJPEG 监控主页。</p>
+        </header>
+
+        <section class="layout">
+            <div class="panel">
+                <div class="player-box">
+                    <div id="hik-play-window"></div>
+                </div>
+                <div class="actions">
+                    <button id="hik-start-btn" class="btn-primary" type="button">开始播放</button>
+                    <button id="hik-stop-btn" class="btn-secondary" type="button">停止播放</button>
+                </div>
+            </div>
+
+            <aside class="panel">
+                <h2 style="margin-top: 0; font-size: 18px;">状态信息</h2>
+                <div id="hik-status" class="status-box">页面已加载，等待播放器初始化。</div>
+
+                <h2 style="margin: 18px 0 12px; font-size: 18px;">测试参数</h2>
+                <div class="meta-list">
+                    <div class="meta-item">
+                        <strong>WS 网关</strong>
+                        <span id="hik-access-url">{{ hik_config.accessUrl }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <strong>RTSP 地址</strong>
+                        <span id="hik-preview-url">{{ hik_config.previewUrl }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <strong>用户名</strong>
+                        <span id="hik-username">{{ hik_config.username }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <strong>密码</strong>
+                        <span id="hik-password">{{ hik_config.maskedPassword }}</span>
+                    </div>
+                </div>
+
+                <div class="hint">
+                    如果当前项目中的 demo 文件与同事本地可运行版本存在差异，播放器初始化参数可能仍需补充对照。此时请优先拿同事现有可运行的 HTML / JS 代码做最终校准。
+                </div>
+            </aside>
+        </section>
+    </div>
+
+    <script>
+        window.HIK_TEST_CONFIG = {{ hik_config|tojson }};
+    </script>
+    <script src="{{ hik_config.polyfillUrl }}"></script>
+    <script src="{{ hik_config.pluginUrl }}"></script>
+    <script src="{{ url_for('static', filename='js/hik_common_player.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/hik_test.js') }}"></script>
+</body>
+</html>

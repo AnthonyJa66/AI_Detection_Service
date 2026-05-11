@@ -1,0 +1,65 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 5000,
+    "debug": true
+  },
+  "paths": {
+    "snapshot_dir": "snapshots",
+    "db_path": "data/monitoring.db"
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "logs/app.log"
+  },
+  "cameras": [
+    {
+      "camera_id": "002",
+      "name": "nvr办公室01",
+      "source_type": "nvr_rtsp",
+      "rtsp_url": "rtsp://admin:cmc.1340@192.168.1.100:554/dac/realplay/68F108CF-522A-4774-A0A7-AC41687839601/MAIN/TCP?streamform=rtp",
+      "detection_rtsp_url": "rtsp://admin:cmc.1340@192.168.1.100:554/dac/realplay/68F108CF-522A-4774-A0A7-AC41687839601/SUB/TCP?streamform=rtp",
+      "enabled": true,
+      "fps_target": 25,
+      "retry_interval_seconds": 5,
+      "max_reconnect_attempts": 0,
+      "resolution": {
+        "width": 1280,
+        "height": 720
+      },
+      "location": "办公室",
+      "nvr_name": "",
+      "nvr_host": "",
+      "nvr_port": 554,
+      "channel_no": "",
+      "username": "",
+      "password": ""
+    }
+  ],
+  "detection": {
+    "confidence": 0.35,
+    "safety_confidence": 0.3,
+    "smoking_confidence": 0.53,
+    "detect_interval_seconds": 0.5,
+    "max_inference_workers": 1
+  },
+  "alarm": {
+    "confirm_counts": {
+      "no_helmet": 2,
+      "no_vest": 2,
+      "smoking": 2
+    },
+    "clear_count": 4,
+    "session_end_grace_seconds": 2.0,
+    "enable_reminder_events": false,
+    "reminder_interval_seconds": 60
+  },
+  "display": {
+    "display_detection_overlay": false
+  },
+  "hik_playback": {
+    "access_url": "ws://192.168.1.100:8090",
+    "username": "admin",
+    "password": "cmc.1340"
+  }
+}

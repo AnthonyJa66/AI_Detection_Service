@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+env/
+venv/
+**/site-packages/
+
+# Node
+node_modules/
+.cache/
+
+# Unreal Engine
+DerivedDataCache/
+Binaries/
+Intermediate/
+Saved/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log
+
+# Media
+*.mp4
+*.avi
+*.mov
+
+# Models/Data
+models/
+data/
+snapshots/
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# User/AppData
+AppData/
+Application Data/
+Local Settings/

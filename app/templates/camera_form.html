@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+    <link
+        href="{{ url_for('static', filename='css/style.css') }}"
+        rel="stylesheet"
+    >
+</head>
+<body>
+    <div class="page-shell">
+        <div class="container py-4 py-lg-5">
+            <header class="page-header page-header-stack mb-4">
+                <div>
+                    <p class="eyebrow mb-2">摄像头配置表单</p>
+                    <h1 class="page-title mb-2">{{ page_title }}</h1>
+                    <p class="page-subtitle mb-0">填写视频源连接信息和视频流参数。当前已预留 NVR RTSP 通道所需的结构字段。</p>
+                </div>
+                <a class="btn btn-outline-secondary" href="{{ url_for('camera.list_cameras') }}">返回摄像头列表</a>
+            </header>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <section class="mb-4">
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }} mb-2" role="alert">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </section>
+            {% endif %}
+            {% endwith %}
+
+            <section class="summary-card">
+                <form class="row g-3" method="post">
+                    <input type="hidden" name="original_camera_id" value="{{ original_camera_id }}">
+
+                    <div class="col-12 col-md-6">
+                        <label class="form-label" for="camera_id">摄像头 ID</label>
+                        <input class="form-control" id="camera_id" name="camera_id" value="{{ form_values.camera_id or form_values.id }}" required>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label" for="name">摄像头名称</label>
+                        <input class="form-control" id="name" name="name" value="{{ form_values.name }}" required>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label" for="source_type">来源类型</label>
+                        <select class="form-select" id="source_type" name="source_type">
+                            <option value="rtsp_camera" {% if form_values.source_type == "rtsp_camera" %}selected{% endif %}>RTSP 摄像头</option>
+                            <option value="nvr_rtsp" {% if form_values.source_type == "nvr_rtsp" %}selected{% endif %}>NVR RTSP 通道</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label" for="location">安装位置</label>
+                        <input class="form-control" id="location" name="location" value="{{ form_values.location }}">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="rtsp_url">RTSP URL</label>
+                        <input class="form-control" id="rtsp_url" name="rtsp_url" value="{{ form_values.rtsp_url }}" required>
+                        <div class="form-text text-light-emphasis">当前阶段无论是普通 RTSP 摄像头还是 NVR RTSP 通道，都需要提供可用的 RTSP URL。</div>
+                    </div>
+                    <div class="col-12 col-md-6 d-flex align-items-end">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" id="enabled" name="enabled" type="checkbox" {% if form_values.enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="enabled">启用该摄像头</label>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <h2 class="summary-title mb-0">NVR 预留字段</h2>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label" for="nvr_name">NVR 名称</label>
+                        <input class="form-control" id="nvr_name" name="nvr_name" value="{{ form_values.nvr_name }}">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label" for="nvr_host">NVR 地址</label>
+                        <input class="form-control" id="nvr_host" name="nvr_host" value="{{ form_values.nvr_host }}">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label" for="nvr_port">NVR 端口</label>
+                        <input class="form-control" id="nvr_port" name="nvr_port" type="number" min="1" value="{{ form_values.nvr_port }}">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label" for="channel_no">通道号</label>
+                        <input class="form-control" id="channel_no" name="channel_no" value="{{ form_values.channel_no }}">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label" for="username">用户名</label>
+                        <input class="form-control" id="username" name="username" value="{{ form_values.username }}">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label" for="password">密码</label>
+                        <input class="form-control" id="password" name="password" type="password" value="{{ form_values.password }}">
+                    </div>
+
+                    <div class="col-12">
+                        <h2 class="summary-title mb-0">视频流参数</h2>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label" for="resolution_width">分辨率宽度</label>
+                        <input class="form-control" id="resolution_width" name="resolution_width" type="number" min="1" value="{{ form_values.resolution.width }}">
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label" for="resolution_height">分辨率高度</label>
+                        <input class="form-control" id="resolution_height" name="resolution_height" type="number" min="1" value="{{ form_values.resolution.height }}">
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <label class="form-label" for="fps_target">目标 FPS</label>
+                        <input class="form-control" id="fps_target" name="fps_target" type="number" min="1" value="{{ form_values.fps_target }}">
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <label class="form-label" for="retry_interval_seconds">重连间隔(秒)</label>
+                        <input class="form-control" id="retry_interval_seconds" name="retry_interval_seconds" type="number" min="1" value="{{ form_values.retry_interval_seconds }}">
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <label class="form-label" for="max_reconnect_attempts">最大重连次数</label>
+                        <input class="form-control" id="max_reconnect_attempts" name="max_reconnect_attempts" type="number" min="0" value="{{ form_values.max_reconnect_attempts }}">
+                    </div>
+
+                    <div class="col-12 d-flex gap-2">
+                        <button class="btn btn-primary" type="submit">{{ submit_label }}</button>
+                        <a class="btn btn-outline-secondary" href="{{ url_for('camera.list_cameras') }}">取消</a>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </div>
+</body>
+</html>
