@@ -1,8 +1,6 @@
 (function () {
     // 海康 Web SDK 公共播放器桥接层。
     // 主界面、hik_test、hik_fusion_test 统一复用这里的初始化、播放和声音控制逻辑。
-    // 海康 Web SDK 公共播放器桥接层。
-    // 主界面、hik_test、hik_fusion_test 统一复用这里的初始化、播放和声音控制逻辑。
     const LAST_ERROR_DESCRIPTION_MAP = Object.freeze({
         0: "参数错误",
         1: "成功",
@@ -66,6 +64,8 @@
     let isPlaying = false;
     let lastCameraId = "";
     let activeContainerId = "";
+    // 所有 init / play / stop / destroy 都串到同一条 Promise 链上，
+    // 避免用户连续切流时把海康 SDK 调用顺序打乱。
     let operationChain = Promise.resolve();
 
     function formatError(error) {

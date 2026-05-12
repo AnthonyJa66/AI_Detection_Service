@@ -37,6 +37,9 @@ let latestStatusMap = {};
 let latestAlarmSignature = "";
 let latestAlarmMap = new Map();
 
+// 当前主播放器状态。
+// activePlayerType 只区分当前主画面走的是海康 SDK 还是 MJPEG，
+// 检测展示本身不依赖这个变量。
 let hikPlayerController = null;
 let activePlayerType = "";
 let mjpegPlayerElement = null;
@@ -690,6 +693,7 @@ async function createHikPlayerController() {
 }
 
 async function stopCurrentPlayer() {
+    // 所有切流动作都先收口到这里，确保旧实例、旧画面和旧叠框状态一次清干净。
     stopOverlayPolling();
     if (mjpegPlayerElement) {
         mjpegPlayerElement.removeAttribute("src");
@@ -713,6 +717,7 @@ async function stopCurrentPlayer() {
 }
 
 async function initHikPlayer(config) {
+    // NVR 播放统一复用海康公共桥接层，避免主界面和测试页再出现两套参数拼装逻辑。
     const request = buildHikPlayRequest(config);
     await stopCurrentPlayer();
 
@@ -953,6 +958,7 @@ async function fetchPlaybackConfigNormalized(cameraId) {
 
 async function refreshOverlayDetections() {
     // 播放失败不应带崩检测展示；接口异常时仅清空叠框并保留后续重试。
+    // 叠框和统计永远按 selectedCameraId 拉取，不依赖当前播放器使用哪条播放链路。
     if (!selectedCameraId || !overlayCanvas || !overlayContext) {
         return;
     }
@@ -980,6 +986,7 @@ async function refreshOverlayDetections() {
 }
 
 function drawViolationOverlay(data) {
+    // 后端返回的是检测原图坐标，这里再按当前显示区域做一次缩放和居中映射。
     const canvasRect = syncOverlayCanvasSize();
     clearOverlayCanvas();
 

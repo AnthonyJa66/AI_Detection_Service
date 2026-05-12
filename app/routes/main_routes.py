@@ -89,10 +89,10 @@ def hik_test():
     return render_template("hik_test.html", hik_config=hik_config)
 
 
-@main_bp.route("/hik_demo/<path:filename>", methods=["GET"])
-def hik_demo_asset(filename: str):
-    demo_root = Path(current_app.root_path).parent / "demo"
-    return send_from_directory(demo_root, filename)
+@main_bp.route("/hik/<path:filename>", methods=["GET"])
+def hik_asset(filename: str):
+    hik_root = Path(current_app.root_path).parent / "hik"
+    return send_from_directory(hik_root, filename)
 
 
 @main_bp.route("/hik_fusion_test", methods=["GET"])
@@ -363,9 +363,9 @@ def main_playback_config(camera_id: str):
     payload.update(
         {
             "mjpeg_url": url_for("main.video_feed", camera_id=camera_id),
-            "demo_base_path": url_for("main.hik_demo_asset", filename="dist"),
-            "polyfill_url": url_for("main.hik_demo_asset", filename="dist/polyfill2.js"),
-            "plugin_url": url_for("main.hik_demo_asset", filename="dist/jsPlugin-1.2.0.min.js"),
+            "demo_base_path": url_for("main.hik_asset", filename="dist"),
+            "polyfill_url": url_for("main.hik_asset", filename="dist/polyfill2.js"),
+            "plugin_url": url_for("main.hik_asset", filename="dist/jsPlugin-1.2.0.min.js"),
         }
     )
 
@@ -850,9 +850,9 @@ def _build_hik_test_config() -> dict[str, object]:
             "gpuMode": payload.get("gpu_mode"),
             "cameraIndexCode": str(payload.get("camera_index_code") or ""),
             "cameraId": str(payload.get("camera_id") or ""),
-            "demoBasePath": url_for("main.hik_demo_asset", filename="dist"),
-            "polyfillUrl": url_for("main.hik_demo_asset", filename="dist/polyfill2.js"),
-            "pluginUrl": url_for("main.hik_demo_asset", filename="dist/jsPlugin-1.2.0.min.js"),
+            "demoBasePath": url_for("main.hik_asset", filename="dist"),
+            "polyfillUrl": url_for("main.hik_asset", filename="dist/polyfill2.js"),
+            "pluginUrl": url_for("main.hik_asset", filename="dist/jsPlugin-1.2.0.min.js"),
         }
 
     return {
@@ -870,9 +870,9 @@ def _build_hik_test_config() -> dict[str, object]:
         "gpuMode": None,
         "cameraIndexCode": "",
         "cameraId": "",
-        "demoBasePath": url_for("main.hik_demo_asset", filename="dist"),
-        "polyfillUrl": url_for("main.hik_demo_asset", filename="dist/polyfill2.js"),
-        "pluginUrl": url_for("main.hik_demo_asset", filename="dist/jsPlugin-1.2.0.min.js"),
+        "demoBasePath": url_for("main.hik_asset", filename="dist"),
+        "polyfillUrl": url_for("main.hik_asset", filename="dist/polyfill2.js"),
+        "pluginUrl": url_for("main.hik_asset", filename="dist/jsPlugin-1.2.0.min.js"),
     }
 
 

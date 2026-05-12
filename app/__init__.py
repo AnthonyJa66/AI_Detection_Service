@@ -108,4 +108,7 @@ def _should_start_camera_streams(settings: dict) -> bool:
     if not debug_enabled:
         return True
 
+    if os.environ.get("SMART_VIDEO_DISABLE_RELOADER") == "1":
+        return True
+
     return os.environ.get("WERKZEUG_RUN_MAIN") == "true"

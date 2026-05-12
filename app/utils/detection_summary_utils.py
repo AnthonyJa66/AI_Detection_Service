@@ -1,6 +1,6 @@
 """检测结果统计辅助函数。
 
-这里的统计口径会被主界面卡片、叠框接口和部分报警汇总逻辑复用。
+主界面的统计卡片、叠框接口和部分报警汇总逻辑会复用这里的口径。
 """
 
 from __future__ import annotations
@@ -72,16 +72,22 @@ def valid_smoking_detections(detection_result: DetectionResult):
 
 def filtered_violation_detections(detection_result: DetectionResult):
     """返回主界面叠框需要展示的违规检测结果。"""
+    person_detections = _person_detections(detection_result)
     valid_smoking = {id(item): item for item in valid_smoking_detections(detection_result)}
     filtered_items = []
+
     for item in detection_result.detections:
         normalized_name = normalize_label_name(item.class_name)
         if normalized_name == "smoking":
             if id(item) in valid_smoking:
                 filtered_items.append(item)
             continue
-        if normalized_name in {"no_helmet", "no_vest"}:
+
+        # 安全帽/反光背心违规的展示前提同样必须先检测到人，
+        # 避免画面无人时把孤立的 no_helmet / no_vest 误检框画到主界面上。
+        if normalized_name in {"no_helmet", "no_vest"} and person_detections:
             filtered_items.append(item)
+
     return filtered_items
 
 
@@ -89,19 +95,19 @@ def summarize_violation_counts(detection_result: DetectionResult) -> dict[str, i
     """返回主界面统计卡片使用的违规数量。"""
     detections = detection_result.detections
     normalized_names = [normalize_label_name(item.class_name) for item in detections]
+    person_count = sum(1 for name in normalized_names if name == "person")
 
-    direct_no_helmet = sum(1 for name in normalized_names if name == "no_helmet")
-    direct_no_vest = sum(1 for name in normalized_names if name == "no_vest")
+    # 无人时直接把 PPE 违规记为 0，避免 no_helmet / no_vest 孤立误检触发统计。
+    direct_no_helmet = sum(1 for name in normalized_names if name == "no_helmet") if person_count > 0 else 0
+    direct_no_vest = sum(1 for name in normalized_names if name == "no_vest") if person_count > 0 else 0
     smoking_count = len(valid_smoking_detections(detection_result))
 
     if direct_no_helmet == 0:
-        person_count = sum(1 for name in normalized_names if name == "person")
         has_helmet = any(name == "helmet" for name in normalized_names)
         if person_count > 0 and not has_helmet:
             direct_no_helmet = person_count
 
     if direct_no_vest == 0:
-        person_count = sum(1 for name in normalized_names if name == "person")
         has_vest = any(name == "vest" for name in normalized_names)
         if person_count > 0 and not has_vest:
             direct_no_vest = person_count

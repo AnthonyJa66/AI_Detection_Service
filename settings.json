@@ -34,6 +34,27 @@
       "channel_no": "",
       "username": "",
       "password": ""
+    },
+    {
+      "camera_id": "101",
+      "name": "办公室1",
+      "source_type": "rtsp_camera",
+      "rtsp_url": "rtsp://admin:jsjl1340@192.168.1.64:554/h264/ch1/main/av_stream",
+      "enabled": true,
+      "fps_target": 25,
+      "retry_interval_seconds": 5,
+      "max_reconnect_attempts": 0,
+      "resolution": {
+        "width": 1280,
+        "height": 720
+      },
+      "location": "办公室",
+      "nvr_name": "",
+      "nvr_host": "",
+      "nvr_port": 554,
+      "channel_no": "",
+      "username": "",
+      "password": ""
     }
   ],
   "detection": {

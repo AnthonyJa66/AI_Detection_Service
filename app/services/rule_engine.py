@@ -1,10 +1,12 @@
 """违规规则引擎。
 
-负责把逐帧检测结果转成“更稳定的状态变化事件”，避免单帧抖动直接触发报警。
+负责把逐帧检测结果整理成更稳定的违规状态事件，避免单帧抖动直接触发报警。
 """
 
 from __future__ import annotations
 
+import threading
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -23,6 +25,20 @@ SUPPORTED_VIOLATION_TYPES = ("no_helmet", "no_vest", "smoking")
 REQUIRED_CONFIRM_HITS = 3
 SMOKING_PERSON_DISTANCE_SCALE = 0.6
 ALARM_COOLDOWN_SECONDS = 5
+
+
+@dataclass(slots=True)
+class CameraRuleState:
+    """单路摄像头的报警状态。
+
+    RuleEngine 会被多路摄像头共享，如果这里不按 camera_id 隔离，
+    一路视频的稳定计数和冷却时间就会把另一路的报警状态冲掉。
+    """
+
+    prev_state: tuple[bool, bool, bool] | None = None
+    stable_count: int = 0
+    last_alarm_state: tuple[bool, bool, bool] | None = None
+    last_alarm_time: float = 0.0
 
 
 def build_violation_event(result):
@@ -56,7 +72,7 @@ def build_violation_event(result):
 
 
 class RuleEngine:
-    """根据检测结果维护违规状态并决定是否报警。"""
+    """根据检测结果维护违规状态，并决定是否生成报警事件。"""
 
     def __init__(
         self,
@@ -76,14 +92,13 @@ class RuleEngine:
             for violation_type in SUPPORTED_VIOLATION_TYPES
         }
         self.required_confirm_hits = REQUIRED_CONFIRM_HITS
-        self.prev_state = None
-        self.stable_count = 0
-        self.last_alarm_state = None
-        self.last_alarm_time = 0
+        self._camera_states: dict[str, CameraRuleState] = {}
+        self._state_lock = threading.Lock()
 
     def evaluate(self, result):
         """对当前状态做去抖和冷却判断，返回报警事件或 None。"""
         counts = result["counts"]
+        camera_id = str(result.get("camera_id") or "")
         state = (
             counts["no_helmet"] > 0,
             counts["no_vest"] > 0,
@@ -91,37 +106,38 @@ class RuleEngine:
         )
         now = float(result["timestamp"] or 0)
 
-        if state == self.prev_state:
-            self.stable_count += 1
-        else:
-            self.prev_state = state
-            self.stable_count = 1
+        with self._state_lock:
+            camera_state = self._camera_states.setdefault(camera_id, CameraRuleState())
 
-        if self.stable_count < 3:
-            return None
+            if state == camera_state.prev_state:
+                camera_state.stable_count += 1
+            else:
+                camera_state.prev_state = state
+                camera_state.stable_count = 1
 
-        if state == (False, False, False):
-            self.last_alarm_state = None
-            return None
+            if camera_state.stable_count < self.required_confirm_hits:
+                return None
 
-        if now - self.last_alarm_time < ALARM_COOLDOWN_SECONDS:
-            return None
+            if state == (False, False, False):
+                camera_state.last_alarm_state = None
+                return None
 
-        if state == self.last_alarm_state:
-            return None
+            if now - camera_state.last_alarm_time < ALARM_COOLDOWN_SECONDS:
+                return None
 
-        event = build_violation_event(result)
+            if state == camera_state.last_alarm_state:
+                return None
 
-        if event is None:
-            return None
+            event = build_violation_event(result)
+            if event is None:
+                return None
 
-        self.last_alarm_state = state
-        self.last_alarm_time = now
-
-        return event
+            camera_state.last_alarm_state = state
+            camera_state.last_alarm_time = now
+            return event
 
     def build_result(self, detection_result: DetectionResult) -> dict[str, object]:
-        """把 DetectionResult 转成规则引擎内部使用的状态结构。"""
+        """把 DetectionResult 转成规则引擎内部使用的结构。"""
         return {
             "camera_id": detection_result.camera_id,
             "timestamp": self._normalize_timestamp(detection_result.timestamp),
@@ -149,15 +165,20 @@ class RuleEngine:
         ]
 
     def reset(self, camera_id: str | None = None) -> None:
-        self.prev_state = None
-        self.stable_count = 0
-        self.last_alarm_state = None
-        self.last_alarm_time = 0
+        """清理规则状态。
+
+        camera_id 为空时清空全部；传入具体摄像头时只清这一路，避免误伤其他流。
+        """
+        with self._state_lock:
+            if camera_id is None:
+                self._camera_states.clear()
+                return
+            self._camera_states.pop(str(camera_id), None)
 
     def _build_current_state(self, detection_result: DetectionResult) -> dict[str, int]:
         """构建当前违规计数。
 
-        抽烟计数会先做“靠近人体”过滤，避免远处高亮区域直接算作抽烟。
+        抽烟计数会先做“靠近人体”过滤，避免远处高亮区域被直接算作抽烟。
         """
         detections = detection_result.detections
         current_state = {violation_type: 0 for violation_type in SUPPORTED_VIOLATION_TYPES}
@@ -165,6 +186,11 @@ class RuleEngine:
         person_detections = self._person_detections(detections)
         valid_smoking = self._match_smoking_detections(detections, person_detections)
         current_state["smoking"] = len(valid_smoking)
+
+        # 安全帽/反光背心违规的前提必须先检测到人。
+        # 这样可以避免画面无人时，模型偶发打出 no_helmet / no_vest 框就直接误报。
+        if not person_detections:
+            return current_state
 
         direct_no_helmet_detections = [
             detection for detection in detections if detection.class_name == "no_helmet"
@@ -177,12 +203,12 @@ class RuleEngine:
 
         if direct_no_helmet_detections:
             current_state["no_helmet"] = len(direct_no_helmet_detections)
-        elif person_detections and not has_helmet:
+        elif not has_helmet:
             current_state["no_helmet"] = len(person_detections)
 
         if direct_no_vest_detections:
             current_state["no_vest"] = len(direct_no_vest_detections)
-        elif person_detections and not has_vest:
+        elif not has_vest:
             current_state["no_vest"] = len(person_detections)
 
         return current_state
@@ -286,10 +312,7 @@ class RuleEngine:
         violation_types: list[str],
     ) -> float:
         matched_detections = self._resolve_event_detections(detection_result, violation_types)
-        matched_confidences = [
-            float(detection.confidence)
-            for detection in matched_detections
-        ]
+        matched_confidences = [float(detection.confidence) for detection in matched_detections]
         if matched_confidences:
             return max(matched_confidences)
         return RULE_CONFIDENCE_INFERRED
