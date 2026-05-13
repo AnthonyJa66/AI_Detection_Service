@@ -13,9 +13,10 @@ app = create_app()
 
 
 if __name__ == "__main__":
+    app.logger.info("Starting Flask REST API service on 0.0.0.0:5000.")
     app.run(
-        host=app.config["APP_SETTINGS"]["server"]["host"],
-        port=app.config["APP_SETTINGS"]["server"]["port"],
+        host="0.0.0.0",
+        port=5000,
         debug=app.config["APP_SETTINGS"]["server"]["debug"],
         use_reloader=False,
     )

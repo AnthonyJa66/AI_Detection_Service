@@ -239,6 +239,7 @@ def alarms():
 def health():
     try:
         settings = current_app.config.get("APP_SETTINGS", {})
+        current_app.logger.info("REST health check requested.")
         return _json_response(
             True,
             "\u670d\u52a1\u8fd0\u884c\u6b63\u5e38\u3002",
@@ -257,17 +258,20 @@ def camera_status():
     try:
         camera_manager = current_app.extensions["camera_manager"]
         status_map = camera_manager.get_all_status()
+        current_app.logger.info("REST camera status requested.")
         return _json_response(True, "\u6444\u50cf\u5934\u72b6\u6001\u83b7\u53d6\u6210\u529f\u3002", status_map)
     except Exception as exc:
         current_app.logger.exception("Failed to get camera status: %s", exc)
         return _json_response(False, "\u6444\u50cf\u5934\u72b6\u6001\u83b7\u53d6\u5931\u8d25\u3002", status_code=500)
 
 
+@main_bp.route("/api/alerts/recent", methods=["GET"])
 @main_bp.route("/api/alarms/latest", methods=["GET"])
 def latest_alarms():
     try:
         limit = min(20, max(1, int(request.args.get("limit", 10))))
         alarms = _load_recent_alarms(limit=limit)
+        current_app.logger.info("REST recent alerts requested. limit=%s", limit)
         return _json_response(True, "\u6700\u8fd1\u62a5\u8b66\u83b7\u53d6\u6210\u529f\u3002", {"items": alarms})
     except Exception as exc:
         current_app.logger.exception("Failed to get latest alarms: %s", exc)
@@ -307,11 +311,13 @@ def camera_play_config(camera_id: str):
     )
 
 
+@main_bp.route("/api/cameras/<camera_id>/latest", methods=["GET"])
 @main_bp.route("/api/detections/latest/<camera_id>", methods=["GET"])
 def latest_detection(camera_id: str):
     try:
         video_processor = current_app.extensions["video_processor"]
         camera_manager = current_app.extensions["camera_manager"]
+        current_app.logger.info("REST latest detection requested. camera_id=%s", camera_id)
 
         if not video_processor.has_camera(camera_id):
             return _json_response(False, "\u6444\u50cf\u5934\u4e0d\u5b58\u5728\u3002", status_code=404)
