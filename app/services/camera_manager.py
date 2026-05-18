@@ -8,7 +8,7 @@ import threading
 from typing import Any
 
 from app.logger import get_logger
-from app.services.camera_stream import CameraConfig, CameraStream
+from app.services.camera_stream import CameraConfig, CameraStream, mask_rtsp_url
 from app.services.stream_factory import StreamFactory
 
 
@@ -24,6 +24,19 @@ class CameraManager:
     def load_from_settings(self, settings: dict[str, Any]) -> None:
         """按配置热更新摄像头集合。"""
         cameras = settings.get("cameras", [])
+        gateway_settings = settings.get("camera_gateway", {})
+        if isinstance(gateway_settings, dict) and gateway_settings:
+            self.logger.info(
+                "camera gateway rtsp auth enabled: %s",
+                str(bool(gateway_settings.get("rtsp_auth_enabled", False))).lower(),
+            )
+        for camera_data in cameras:
+            if str(camera_data.get("source") or "") == "gateway":
+                self.logger.info(
+                    "generated camera url: %s",
+                    mask_rtsp_url(str(camera_data.get("rtsp_url") or "")),
+                )
+
         next_configs = {
             config.id: config
             for config in (CameraConfig.from_dict(camera_data) for camera_data in cameras)

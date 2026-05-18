@@ -13,6 +13,7 @@ def init_websocket_routes(
     sock = Sock(app)
 
     @sock.route("/ws/alerts")
+    @sock.route("/ws/alarms")
     def alarm_socket(ws) -> None:
         connection_manager.handle_client(ws)
 

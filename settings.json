@@ -12,6 +12,29 @@
     "level": "INFO",
     "file": "logs/app.log"
   },
+  "camera_gateway": {
+    "enabled": true,
+    "base_url": "http://192.168.1.100:1144",
+    "username": "admin",
+    "password": "21232f297a57a5a743894a0e4a801fc3",
+    "timeout": 5,
+    "max_result": 100,
+    "rtsp_host": "192.168.1.100",
+    "rtsp_port": 554,
+    "rtsp_stream_type": "MAIN",
+    "rtsp_transport": "TCP",
+    "rtsp_streamform": "rtp",
+    "rtsp_auth_enabled": true,
+    "rtsp_username": "admin",
+    "rtsp_password": "cmc.1340",
+    "protocol_types": [
+      "ehomeV5"
+    ],
+    "device_status": [
+      "online",
+      "offline"
+    ]
+  },
   "cameras": [
     {
       "camera_id": "002",

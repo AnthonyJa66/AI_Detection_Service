@@ -9,9 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from app.models.video_source import (
+    SOURCE_TYPE_NVR_RTSP,
     SOURCE_TYPE_RTSP_CAMERA,
     SUPPORTED_SOURCE_TYPES,
 )
+from app.services.camera_gateway_client import CameraGatewayClient
 
 
 module_logger = logging.getLogger(__name__)
@@ -162,6 +164,138 @@ def validate_camera_data(camera: dict[str, Any]) -> None:
         raise ConfigError("Camera nvr_port must be greater than 0.")
 
 
+def _apply_camera_gateway_settings(settings: dict[str, Any]) -> dict[str, Any]:
+    camera_gateway_config = settings.get("camera_gateway", {})
+    if not isinstance(camera_gateway_config, dict):
+        return settings
+    if not _coerce_bool(camera_gateway_config.get("enabled", False)):
+        return settings
+
+    try:
+        client = CameraGatewayClient(camera_gateway_config)
+        devices = client.fetch_device_list()
+        gateway_cameras = client.normalize_camera_list(devices)
+        cameras = _build_gateway_camera_configs(gateway_cameras, settings)
+        if not cameras:
+            module_logger.warning("fallback to local camera config")
+            return settings
+
+        gateway_settings = dict(settings)
+        gateway_settings["cameras"] = cameras
+        validate_settings_data(gateway_settings)
+        module_logger.info("Loaded cameras from camera gateway. total=%s", len(cameras))
+        return gateway_settings
+    except ConfigError:
+        module_logger.exception("Camera gateway camera config is invalid.")
+        module_logger.warning("fallback to local camera config")
+        return settings
+    except Exception as exc:
+        module_logger.exception("Failed to load cameras from camera gateway: %s", exc)
+        module_logger.warning("fallback to local camera config")
+        return settings
+
+
+def _build_gateway_camera_configs(
+    gateway_cameras: list[dict],
+    settings: dict[str, Any],
+) -> list[dict[str, Any]]:
+    cameras: list[dict[str, Any]] = []
+    for index, gateway_camera in enumerate(gateway_cameras):
+        try:
+            camera = _gateway_camera_to_project_camera(gateway_camera, index, settings)
+            if camera is not None:
+                cameras.append(camera)
+        except Exception as exc:
+            module_logger.exception(
+                "Failed to convert camera gateway camera. index=%s error=%s",
+                index,
+                exc,
+            )
+    return cameras
+
+
+def _gateway_camera_to_project_camera(
+    gateway_camera: dict[str, Any],
+    index: int,
+    settings: dict[str, Any],
+) -> dict[str, Any] | None:
+    if not isinstance(gateway_camera, dict):
+        module_logger.warning("Camera gateway camera is not an object. index=%s", index)
+        return None
+
+    camera_id = str(gateway_camera.get("id") or "").strip()
+    if not camera_id:
+        module_logger.warning(
+            "Camera gateway camera missing id. index=%s",
+            index,
+        )
+        return None
+
+    rtsp_url = str(gateway_camera.get("url") or "").strip()
+    if not rtsp_url:
+        module_logger.warning(
+            "Camera gateway camera missing url. camera_id=%s",
+            camera_id,
+        )
+        return None
+
+    camera_gateway_config = settings.get("camera_gateway", {})
+    if not isinstance(camera_gateway_config, dict):
+        camera_gateway_config = {}
+    resolution = {
+        "width": int(camera_gateway_config.get("resolution_width", 1280) or 1280),
+        "height": int(camera_gateway_config.get("resolution_height", 720) or 720),
+    }
+    raw_device = gateway_camera.get("raw") if isinstance(gateway_camera.get("raw"), dict) else {}
+
+    return {
+        "camera_id": camera_id,
+        "id": camera_id,
+        "name": str(gateway_camera.get("name") or camera_id).strip(),
+        "source_type": SOURCE_TYPE_NVR_RTSP,
+        "rtsp_url": rtsp_url,
+        "detection_rtsp_url": str(gateway_camera.get("detection_url") or "").strip(),
+        "enabled": True,
+        "fps_target": int(camera_gateway_config.get("fps_target", 25) or 25),
+        "retry_interval_seconds": int(
+            camera_gateway_config.get("retry_interval_seconds", 5) or 5
+        ),
+        "max_reconnect_attempts": int(
+            camera_gateway_config.get("max_reconnect_attempts", 0) or 0
+        ),
+        "resolution": resolution,
+        "location": str(gateway_camera.get("status") or ""),
+        "nvr_name": str(raw_device.get("devName") or ""),
+        "nvr_host": str(camera_gateway_config.get("rtsp_host") or ""),
+        "nvr_port": int(camera_gateway_config.get("rtsp_port", 554) or 554),
+        "channel_no": str(gateway_camera.get("channel_no") or ""),
+        "username": "",
+        "password": "",
+        "url": rtsp_url,
+        "status": str(gateway_camera.get("status") or ""),
+        "source": "gateway",
+        "device_id": str(gateway_camera.get("device_id") or ""),
+        "protocol_type": str(gateway_camera.get("protocol_type") or ""),
+        "dev_type": str(gateway_camera.get("dev_type") or ""),
+        "raw": raw_device,
+    }
+
+
+def _coerce_bool(value: Any, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on", "enabled"}:
+            return True
+        if normalized in {"0", "false", "no", "off", "disabled"}:
+            return False
+        return default
+    return bool(value)
+
+
 def _normalize_settings(settings: dict[str, Any]) -> dict[str, Any]:
     """把原始配置转换为运行期配置。"""
     project_root = _project_root()
@@ -218,6 +352,19 @@ def _normalize_settings(settings: dict[str, Any]) -> dict[str, Any]:
             display_settings.get("display_detection_overlay", False)
         )
     }
+    camera_gateway_settings = dict(settings.get("camera_gateway", {}))
+    if camera_gateway_settings:
+        camera_gateway_settings["enabled"] = _coerce_bool(
+            camera_gateway_settings.get("enabled", False)
+        )
+        if "timeout" in camera_gateway_settings:
+            camera_gateway_settings["timeout"] = float(
+                camera_gateway_settings["timeout"]
+            )
+        if "max_result" in camera_gateway_settings:
+            camera_gateway_settings["max_result"] = int(
+                camera_gateway_settings["max_result"]
+            )
 
     normalized_cameras = []
     for camera in settings["cameras"]:
@@ -259,6 +406,7 @@ def _normalize_settings(settings: dict[str, Any]) -> dict[str, Any]:
     normalized["detection"] = detection_config
     normalized["alarm"] = alarm_config
     normalized["display"] = normalized_display
+    normalized["camera_gateway"] = camera_gateway_settings
     normalized["cameras"] = normalized_cameras
     return normalized
 
@@ -297,7 +445,8 @@ def load_settings(config_path: str | None = None) -> dict[str, Any]:
         module_logger.exception("Settings validation failed: %s", exc)
         raise ConfigError("Settings values are invalid.") from exc
 
-    normalized_settings = _normalize_settings(settings)
+    effective_settings = _apply_camera_gateway_settings(settings)
+    normalized_settings = _normalize_settings(effective_settings)
     ensure_runtime_directories(normalized_settings)
     module_logger.info("Settings loaded successfully.")
     return normalized_settings

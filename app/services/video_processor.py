@@ -121,6 +121,11 @@ class StreamProcessor:
                 self.camera_id,
                 raw_frame,
             )
+            self.logger.info(
+                "inference success. camera_id=%s detections=%s",
+                self.camera_id,
+                len(detection_result.detections),
+            )
 
             raw_display_frame = raw_frame.copy()
             if detection_result.detections:

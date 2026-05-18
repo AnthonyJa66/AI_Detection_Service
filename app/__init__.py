@@ -12,6 +12,8 @@ from flask_cors import CORS
 from app.config_loader import load_settings
 from app.logger import setup_logging
 from app.routes.api_routes import api_bp
+from app.routes.camera_routes import camera_bp
+from app.routes.main_routes import main_bp
 from app.routes.ws_routes import init_websocket_routes
 from app.services.alarm_manager import AlarmManager
 from app.services.alarm_repository import SQLiteAlarmRepository
@@ -27,7 +29,7 @@ from app.services.websocket_manager import (
 
 def create_app() -> Flask:
     """创建并装配整个应用并返回 Flask 实例。"""
-    app = Flask(__name__, static_folder=None)
+    app = Flask(__name__)
     app.secret_key = os.environ.get("FLASK_SECRET_KEY", "smart-video-monitor-secret")
     CORS(
         app,
@@ -104,6 +106,8 @@ def create_app() -> Flask:
         )
 
     app.register_blueprint(api_bp)
+    app.register_blueprint(main_bp)
+    app.register_blueprint(camera_bp)
 
     app.logger.info("Flask application initialized successfully.")
     return app

@@ -10,6 +10,7 @@ import threading
 import time
 from dataclasses import asdict, dataclass, field
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import cv2
 
@@ -142,6 +143,7 @@ class CameraStream:
         self._latest_frame_id = 0
         self.running = False
         self._read_failures = 0
+        self._first_frame_logged = False
 
     def start(self) -> None:
         with self._status_lock:
@@ -275,7 +277,11 @@ class CameraStream:
             "Connecting to stream. camera_id=%s source_type=%s url=%s",
             self.config.id,
             self.config.source_type,
-            stream_url,
+            mask_rtsp_url(stream_url),
+        )
+        self.logger.info(
+            "detection worker using url: %s",
+            mask_rtsp_url(stream_url),
         )
 
         if not stream_url:
@@ -348,6 +354,13 @@ class CameraStream:
         self._read_failures = 0
         self._frames_read += 1
         self._last_frame_at = time.strftime("%Y-%m-%d %H:%M:%S")
+        if not self._first_frame_logged:
+            self.logger.info(
+                "first frame received. camera_id=%s shape=%s",
+                self.config.id,
+                getattr(frame, "shape", None),
+            )
+            self._first_frame_logged = True
         self._update_fps()
         return True
 
@@ -421,3 +434,19 @@ class CameraStream:
                 previous_config.channel_no != next_config.channel_no,
             ]
         )
+
+
+def mask_rtsp_url(url: str) -> str:
+    try:
+        parts = urlsplit(str(url or ""))
+        if not parts.username:
+            return str(url or "")
+
+        hostname = parts.hostname or ""
+        port_suffix = f":{parts.port}" if parts.port else ""
+        netloc = f"{parts.username}:***@{hostname}{port_suffix}"
+        return urlunsplit(
+            (parts.scheme, netloc, parts.path, parts.query, parts.fragment)
+        )
+    except Exception:
+        return "<invalid-rtsp-url>"
